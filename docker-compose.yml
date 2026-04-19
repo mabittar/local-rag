@@ -19,6 +19,42 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  backend:
+    build: ./backend
+    container_name: localrag-backend
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://localrag:localrag123@postgres:5432/localrag
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: localrag-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  e2e-tests:
+    build: ./e2e-tests
+    container_name: localrag-e2e
+    environment:
+      - BASE_URL=http://frontend:80
+      - API_URL=http://backend:8000
+    depends_on:
+      - frontend
+    profiles:
+      - test
+
 volumes:
   pgdata:
     driver: local
