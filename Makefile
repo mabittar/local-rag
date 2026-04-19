@@ -1,4 +1,8 @@
 # Local RAG Makefile
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
 
 .PHONY: help install up down restart logs ps test clean shell-backend shell-db migrate
 

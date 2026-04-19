@@ -2,6 +2,7 @@
 FROM node:20-slim as build-stage
 WORKDIR /app
 RUN npm install -g pnpm
+RUN pnpm self-update
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install
 COPY . .
