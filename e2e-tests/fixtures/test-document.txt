@@ -1,0 +1,11 @@
+Este é um documento de teste para a plataforma Local RAG.
+
+O objetivo deste documento é demonstrar o funcionamento do sistema de upload e processamento de documentos.
+
+Conteúdo de teste:
+- Upload de arquivos
+- Extração de texto
+- Geração de embeddings
+- Busca semântica
+
+Este documento foi criado em 19/04/2026 para fins de teste automatizado.
