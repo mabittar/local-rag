@@ -64,3 +64,10 @@ backend/.venv/
 backend/__pycache__/
 frontend/node_modules/
 frontend/dist/
+backend/data/*
+e2e-tests/test-results
+e2e-tests/trace-viewer
+e2e-tests/playwright-report
+e2e-tests/screenshots
+*.log
+e2e-tests/mcp-servers
