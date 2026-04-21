@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "postgres-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://localrag:localrag123@localhost:5433/localrag"
+      ],
+      "description": "PostgreSQL MCP server for local-rag database integration",
+      "env": {
+        "POSTGRES_USER": "localrag",
+        "POSTGRES_PASSWORD": "localrag123",
+        "POSTGRES_DB": "localrag",
+        "POSTGRES_PORT": "5433"
+      }
+    }
+  }
+}
