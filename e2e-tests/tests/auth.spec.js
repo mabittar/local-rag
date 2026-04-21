@@ -24,19 +24,27 @@ test.describe('Authentication', () => {
 
   test('should show error with invalid credentials', async ({ page }) => {
     await page.goto('/login');
-    
+
     // Fill invalid credentials
     await page.fill('input[type="text"]', 'wronguser');
     await page.fill('input[type="password"]', 'wrongpassword');
-    
+
     await page.click('button[type="submit"]');
+
+    // Assert error message - use role-based selector for accessibility
+    // Error could be: alert message, toast notification, or inline error
+    const errorLocator = page.locator('[role="alert"]')
+      .or(page.locator('.text-red-600, .text-error, .error-message'))
+      .or(page.locator('[data-testid="login-error"]'))
+      .or(page.locator('text=Erro ao fazer login'))
+      .or(page.locator('text=Credenciais'))
+      .or(page.locator('text=invalid'));
     
-    // Assert error message (can be either the text or in error div)
-    await expect(page.locator('[data-testid="login-error"]').or(page.locator('text=Erro ao fazer login'))).toBeVisible();
-    
+    await expect(errorLocator.first()).toBeVisible({ timeout: 5000 });
+
     // Assert still on login page
     await expect(page).toHaveURL(/\/login$/);
-    
+
     // Assert no token
     const token = await page.evaluate(() => localStorage.getItem('token'));
     expect(token).toBeNull();

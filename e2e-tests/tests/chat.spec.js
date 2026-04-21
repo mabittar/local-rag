@@ -13,7 +13,8 @@ test.describe('Chat', () => {
     await page.goto('/chat');
     await expect(page).toHaveURL(/\/chat$/);
     await expect(page.locator('[data-testid="chat-container"]')).toBeVisible();
-    await expect(page.locator('text=Nova Conversa')).toBeVisible();
+    // Use specific button selector to avoid matching multiple elements
+    await expect(page.getByRole('button', { name: /Nova Conversa/i })).toBeVisible();
   });
 
   test('should create new chat session', async ({ page }) => {
