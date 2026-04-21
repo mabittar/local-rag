@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/api/axios'
+import { useAuthStore } from './auth'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -53,8 +54,9 @@ export const useChatStore = defineStore('chat', {
       this.sources = []
 
       return new Promise((resolve, reject) => {
+        const authStore = useAuthStore()
         const eventSource = new EventSource(
-          `/api/chat/stream?session_id=${this.currentSession.id}&message=${encodeURIComponent(content)}`
+          `/api/chat/stream?session_id=${this.currentSession.id}&message=${encodeURIComponent(content)}&token=${authStore.token}`
         )
 
         eventSource.onmessage = (event) => {
@@ -65,6 +67,11 @@ export const useChatStore = defineStore('chat', {
               this.streamingContent += data.data
             } else if (data.type === 'sources') {
               this.sources = data.sources || []
+            } else if (data.type === 'error') {
+              this.streamingContent = `❌ Erro: ${data.message || 'Ocorreu um erro desconhecido.'}`
+              this.isStreaming = false
+              eventSource.close()
+              reject(new Error(data.message))
             } else if (data.type === 'done') {
               eventSource.close()
               this.messages.push({
