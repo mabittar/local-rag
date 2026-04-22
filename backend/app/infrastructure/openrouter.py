@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 from typing import AsyncGenerator, List, Optional
 
@@ -86,22 +88,60 @@ class OpenRouterClient:
             "stream": True,
         }
 
-        async with httpx.AsyncClient() as client:
-            try:
-                async with client.stream(
-                    "POST",
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=120.0,
-                ) as response:
-                    response.raise_for_status()
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
-                                break
-                            yield data
-            except Exception as e:
-                logger.error(f"Error in chat stream: {e}")
-                yield ""
+        max_retries = 3
+        retry_delay = 2  # segundos iniciais
+
+        for attempt in range(max_retries):
+            async with httpx.AsyncClient() as client:
+                try:
+                    async with client.stream(
+                        "POST",
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=120.0,
+                    ) as response:
+                        if response.status_code == 429:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)
+                                logger.warning(f"Rate limit hit (429). Retrying in {wait_time}s... (Attempt {attempt + 1}/{max_retries})")
+                                await asyncio.sleep(wait_time)
+                                continue
+                            else:
+                                raise Exception("Limite de requisições do OpenRouter atingido. Por favor, tente novamente em alguns minutos.")
+
+                        if response.status_code >= 500:
+                            if attempt < max_retries - 1:
+                                wait_time = retry_delay * (2 ** attempt)
+                                logger.warning(f"Server error ({response.status_code}). Retrying in {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                                continue
+
+                        response.raise_for_status()
+                        
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                data_str = line[6:].strip()
+                                if data_str == "[DONE]":
+                                    break
+                                
+                                try:
+                                    data_json = json.loads(data_str)
+                                    content = data_json["choices"][0].get("delta", {}).get("content", "")
+                                    if content:
+                                        yield content
+                                except Exception:
+                                    continue
+                        
+                        return
+
+                except (httpx.ConnectError, httpx.TimeoutException) as e:
+                    if attempt < max_retries - 1:
+                        wait_time = retry_delay * (2 ** attempt)
+                        logger.warning(f"Connection error: {e}. Retrying in {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        continue
+                    raise Exception(f"Erro de conexão com a IA: {str(e)}")
+                except Exception as e:
+                    logger.error(f"Unexpected error in chat stream: {e}")
+                    raise e

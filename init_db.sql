@@ -42,7 +42,7 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TABLE document_chunks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     document_id INTEGER NOT NULL,
     chunk_index INTEGER NOT NULL CHECK (chunk_index >= 0),
     content TEXT NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE system_config (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT INTO users (username, hashed_password, role) VALUES ('localuser', '\$2b\$12\$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewKyNiAYMyzJ/Iy', 'admin');
+INSERT INTO users (username, hashed_password, role) VALUES ('localuser', '$2b$12$n3WOPO5ffHlxYJ92P31/y.oBJYAkuSQKgAoekFZXSsgKLnOwERWpC', 'admin');
 
 INSERT INTO system_config (key, value, description) VALUES
     ('llm_provider', 'openrouter', 'Provider de LLM'),

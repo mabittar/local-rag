@@ -64,19 +64,20 @@
             </div>
           </div>
           
-          <!-- Assistant Message -->
-          <div v-else class="flex">
-            <div class="max-w-3xl bg-surface border border-border px-6 py-4 rounded-2xl rounded-tl-sm">
-              <div class="markdown-content" v-html="renderMarkdown(message.content)"></div>
+    <!-- Assistant Message -->
+        <div v-else class="flex" data-testid="assistant-message">
+          <div class="max-w-3xl bg-surface border border-border px-6 py-4 rounded-2xl rounded-tl-sm">
+            <div class="markdown-content" v-html="renderMarkdown(message.content)"></div>
               
-              <button
-                v-if="message.sources?.length"
-                @click="showSources(message.sources)"
-                class="mt-3 text-sm text-primary hover:underline flex items-center gap-1"
-              >
-                <BookOpen class="w-4 h-4" />
-                {{ message.sources.length }} fonte(s)
-              </button>
+        <button
+          v-if="message.sources?.length"
+          @click="showSources(message.sources)"
+          data-testid="sources-button"
+          class="mt-3 text-sm text-primary hover:underline flex items-center gap-1"
+        >
+          <BookOpen class="w-4 h-4" />
+          {{ message.sources.length }} fonte(s)
+        </button>
             </div>
           </div>
         </template>
@@ -119,6 +120,7 @@
     <!-- Sources Panel -->
     <div
       v-if="showSourcesPanel"
+      data-testid="sources-panel"
       class="w-80 bg-surface border-l border-border flex flex-col"
     >
       <div class="p-4 border-b border-border flex items-center justify-between">

@@ -7,8 +7,6 @@ from app.models.chat import ChatMessage, ChatSession
 from app.schemas.chat import (
     ChatMessageListResponse,
     ChatMessageResponse,
-    ChatMessageSource,
-    ChatSessionCreate,
     ChatSessionListResponse,
     ChatSessionResponse,
 )

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Column, DateTime, JSON, String, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -18,11 +18,11 @@ class ChatSession(SQLModel, table=True):
         sa_column=Column(String(255), nullable=False, server_default="Nova Conversa")
     )
     created_at: Optional[datetime] = Field(
-        default=None,
-        sa_column=Column(DateTime(timezone=True), server_default="now()")
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime(timezone=True))
     )
     updated_at: Optional[datetime] = Field(
-        default=None,
+        default_factory=datetime.utcnow,
         sa_column=Column(DateTime(timezone=True), onupdate=datetime.utcnow)
     )
 
