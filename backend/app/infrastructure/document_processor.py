@@ -9,7 +9,7 @@ from app.core.config import settings
 
 
 class DocumentProcessor:
-    ALLOWED_EXTENSIONS = {"pdf", "txt", "docx", "md"}
+    ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
     MAX_FILE_SIZE = 104857600  # 100MB
 
     @staticmethod

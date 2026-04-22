@@ -3,9 +3,7 @@ from typing import List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from pgvector.sqlalchemy import Vector
 
-from app.core.config import settings
 from app.models.document import DocumentChunk
 
 logger = logging.getLogger(__name__)
@@ -20,40 +18,32 @@ class PGVectorStore:
         query_embedding: List[float],
         top_k: int = 5,
     ) -> List[dict]:
-        from sqlalchemy import text
-
         try:
-            query = text("""
-                SELECT 
-                    dc.id,
-                    dc.document_id,
-                    dc.chunk_index,
-                    dc.content,
-                    dc.page_number,
-                    dc.embedding <=> :embedding as distance
-                FROM document_chunks dc
-                ORDER BY dc.embedding <=> :embedding
-                LIMIT :limit
-            """)
-
-            result = await self.db.execute(
-                query,
-                {
-                    "embedding": query_embedding,
-                    "limit": top_k,
-                },
+            query = (
+                select(
+                    DocumentChunk.id,
+                    DocumentChunk.document_id,
+                    DocumentChunk.chunk_index,
+                    DocumentChunk.content,
+                    DocumentChunk.page_number,
+                    DocumentChunk.embedding.cosine_distance(query_embedding).label("distance"),
+                )
+                .order_by("distance")
+                .limit(top_k)
             )
 
-            rows = result.fetchall()
+            result = await self.db.execute(query)
+            rows = result.all()
+            
             chunks = []
             for row in rows:
                 chunks.append({
-                    "id": str(row[0]),
-                    "document_id": row[1],
-                    "chunk_index": row[2],
-                    "content": row[3],
-                    "page_number": row[4],
-                    "similarity": 1.0 - float(row[5]),
+                    "id": str(row.id),
+                    "document_id": row.document_id,
+                    "chunk_index": row.chunk_index,
+                    "content": row.content,
+                    "page_number": row.page_number,
+                    "similarity": 1.0 - float(row.distance),
                 })
 
             return chunks

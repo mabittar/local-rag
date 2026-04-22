@@ -12,20 +12,22 @@ security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    token: Optional[str] = None,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     from sqlalchemy import select
 
-    if not credentials:
+    actual_token = credentials.credentials if credentials else token
+
+    if not actual_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = credentials.credentials
-    payload = decode_access_token(token)
+    payload = decode_access_token(actual_token)
 
     if not payload:
         raise HTTPException(

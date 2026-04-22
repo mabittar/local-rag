@@ -1,9 +1,6 @@
-import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat import ChatSession, ChatMessage
 from app.models.user import User
 
 
@@ -79,20 +76,17 @@ class TestChat:
     async def test_stream_chat_invalid_session(
         self, client: AsyncClient, auth_headers: dict
     ):
-        """Test: Stream chat with invalid session returns 404."""
-        # Arrange
-        data = {
-            "session_id": 99999,
-            "message": "Test message",
-        }
+        """Test: Stream chat with invalid session returns 404.
         
-        # Act
-        response = await client.post(
-            "/api/chat/stream",
+        Note: The chat stream endpoint is GET with query parameters (SSE),
+        not POST with JSON body.
+        """
+        # Act - GET request with query parameters
+        response = await client.get(
+            "/api/chat/stream?session_id=99999&message=Test%20message",
             headers=auth_headers,
-            json=data,
         )
-        
+
         # Assert
         assert response.status_code == 404
         data = response.json()

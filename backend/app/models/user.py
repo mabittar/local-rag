@@ -22,8 +22,8 @@ class User(SQLModel, table=True):
         sa_column=Column(String(20), nullable=False, server_default="admin")
     )
     created_at: Optional[datetime] = Field(
-        default=None,
-        sa_column=Column(DateTime(timezone=True), server_default="now()")
+        default_factory=datetime.utcnow,
+        sa_column=Column(DateTime(timezone=True))
     )
     updated_at: Optional[datetime] = Field(
         default=None,

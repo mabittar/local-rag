@@ -1,7 +1,8 @@
 import json
+import logging
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,10 +14,11 @@ from app.schemas.chat import (
     ChatSessionCreate,
     ChatSessionListResponse,
     ChatSessionResponse,
-    ChatStreamRequest,
 )
 from app.services.chat_service import ChatService
 from app.services.rag_service import RAGService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -87,14 +89,15 @@ async def get_session_messages(
     return result
 
 
-@router.post("/stream")
+@router.get("/stream")
 async def chat_stream(
-    request: ChatStreamRequest,
+    session_id: int,
+    message: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     chat_service = ChatService(db)
-    session = await chat_service.get_session(request.session_id, current_user.id)
+    session = await chat_service.get_session(session_id, current_user.id)
 
     if not session:
         raise HTTPException(
@@ -103,16 +106,16 @@ async def chat_stream(
         )
 
     await chat_service.save_message(
-        session_id=request.session_id,
+        session_id=session_id,
         role="user",
-        content=request.message,
+        content=message,
     )
 
     vector_store = PGVectorStore(db)
     openrouter = OpenRouterClient()
     rag_service = RAGService(vector_store, openrouter)
 
-    chunks, context = await rag_service.retrieve_context(request.message, top_k=5)
+    chunks, context = await rag_service.retrieve_context(message, top_k=5)
 
     sources = [
         {
@@ -126,37 +129,43 @@ async def chat_stream(
 
     async def generate_stream() -> AsyncGenerator[str, None]:
         full_response = ""
+        try:
+            async for token in rag_service.stream_chat_response(
+                query=message,
+                context=context,
+            ):
+                if token:
+                    full_response += token
+                    yield format_sse(
+                        json.dumps({"type": "token", "data": token}),
+                        event="message"
+                    )
 
-        async for token in rag_service.stream_chat_response(
-            query=request.message,
-            context=context,
-        ):
-            if token:
-                full_response += token
+            if sources:
                 yield format_sse(
-                    json.dumps({"type": "token", "data": token}),
+                    json.dumps({"type": "sources", "sources": sources}),
                     event="message"
                 )
 
-        if sources:
-            yield format_sse(
-                json.dumps({"type": "sources", "sources": sources}),
-                event="sources"
+            await chat_service.save_message(
+                session_id=session_id,
+                role="assistant",
+                content=full_response,
+                sources=sources,
             )
 
-        await chat_service.save_message(
-            session_id=request.session_id,
-            role="assistant",
-            content=full_response,
-            sources=sources,
-        )
+            await chat_service.update_session_timestamp(session_id)
 
-        await chat_service.update_session_timestamp(request.session_id)
-
-        yield format_sse(
-            json.dumps({"type": "done"}),
-            event="done"
-        )
+            yield format_sse(
+                json.dumps({"type": "done"}),
+                event="message"
+            )
+        except Exception as e:
+            logger.error(f"Error in chat stream: {e}")
+            yield format_sse(
+                json.dumps({"type": "error", "message": str(e)}),
+                event="message"
+            )
 
     return StreamingResponse(
         generate_stream(),
