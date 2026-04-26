@@ -1,14 +1,15 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel
+import uuid
 
 
 class DocumentChunkResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     chunk_index: int
     content: str
-    page_number: Optional[int] = None
+    embedding: List[float]
 
     class Config:
         from_attributes = True
@@ -42,3 +43,4 @@ class DocumentUploadResponse(BaseModel):
     status: str
     total_chunks: int
     message: str
+    chunks: List[DocumentChunkResponse] = []

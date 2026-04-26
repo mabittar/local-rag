@@ -4,7 +4,7 @@ from uuid import UUID
 import uuid_utils
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Column, DateTime, Integer, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, String, Text
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -38,10 +38,27 @@ class Document(SQLModel, table=True):
         back_populates="document",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    document_metadata: List["DocumentMetadata"] = Relationship(
+        back_populates="document",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    process: List["DocumentProcess"] = Relationship(
+        back_populates="document",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class DocumentChunk(SQLModel, table=True):
     __tablename__ = "document_chunks"
+    __table_args__ = (
+        Index(
+            "ix_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
 
     id: UUID = Field(default_factory=uuid_utils.uuid7, primary_key=True)
     document_id: int = Field(foreign_key="documents.id", nullable=False, index=True)
@@ -56,3 +73,31 @@ class DocumentChunk(SQLModel, table=True):
     )
 
     document: Optional["Document"] = Relationship(back_populates="chunks")
+
+
+class DocumentMetadata(SQLModel, table=True):
+    __tablename__ = "document_metadata"
+
+    id: int = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="documents.id", nullable=False, index=True)
+    meta_key: str = Field(sa_column=Column(String(255), nullable=False))
+    meta_value: str = Field(sa_column=Column(Text, nullable=False))
+    created_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True))
+    )
+
+    document: Optional["Document"] = Relationship(back_populates="document_metadata")
+
+
+class DocumentProcess(SQLModel, table=True):
+    __tablename__ = "document_process"
+
+    id: int = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="documents.id", nullable=False, index=True)
+    process_status: str = Field(sa_column=Column(String(255), nullable=False))
+    markdown_content: str = Field(sa_column=Column(Text, nullable=True))
+    created_at: Optional[datetime] = Field(
+        default_factory=datetime.utcnow, sa_column=Column(DateTime(timezone=True))
+    )
+
+    document: Optional["Document"] = Relationship(back_populates="process")

@@ -9,8 +9,8 @@ from app.core.config import settings
 
 
 class DocumentProcessor:
-    ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
-    MAX_FILE_SIZE = 104857600  # 100MB
+    ALLOWED_EXTENSIONS = {"pdf", "txt", "md", "docx", "xlsx", "pptx"}
+    MAX_FILE_SIZE = 5242880  # 5Mb
 
     @staticmethod
     def secure_filename(filename: str) -> str:
@@ -28,10 +28,13 @@ class DocumentProcessor:
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
         if ext not in DocumentProcessor.ALLOWED_EXTENSIONS:
-            return False, f"File type not supported. Allowed: {', '.join(DocumentProcessor.ALLOWED_EXTENSIONS)}"
+            return (
+                False,
+                f"File type not supported. Allowed: {', '.join(DocumentProcessor.ALLOWED_EXTENSIONS)}",
+            )
 
         if content_length > DocumentProcessor.MAX_FILE_SIZE:
-            return False, "File size exceeds maximum limit of 100MB"
+            return False, "File size exceeds maximum limit of 5MB"
 
         return True, ""
 
@@ -48,22 +51,29 @@ class DocumentProcessor:
 
     @staticmethod
     async def extract_text(file_path: str, file_type: str) -> str:
-        if file_type == "pdf":
-            return await DocumentProcessor._extract_pdf(file_path)
+        if file_type in ["pdf", "docx", "xlsx", "pptx"]:
+            return await DocumentProcessor._convert_to_markdown(file_path)
         elif file_type in ["txt", "md"]:
             return await DocumentProcessor._extract_text_file(file_path)
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
     @staticmethod
-    async def _extract_pdf(file_path: str) -> str:
+    async def _convert_to_markdown(file_path: str) -> str:
         try:
-            from pypdf import PdfReader
+            import markitdown
+            from openai import OpenAI
 
-            reader = PdfReader(file_path)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() or ""
+            md = markitdown.MarkItDown(
+                enable_plugins=True,
+                enable_extensions=True,
+                llm_client=OpenAI(
+                    base_url="http://localhost:11434/v1",
+                    api_key="",
+                ),
+                llm_model="llama3.2",
+            )
+            text = md.convert_file(file_path)
             return text
         except Exception:
             return ""
@@ -86,11 +96,13 @@ class DocumentProcessor:
             end = min(start + chunk_size, len(text))
             chunk = text[start:end]
 
-            chunks.append({
-                "index": chunk_index,
-                "content": chunk,
-                "page_number": None,
-            })
+            chunks.append(
+                {
+                    "index": chunk_index,
+                    "content": chunk,
+                    "page_number": None,
+                }
+            )
 
             start = end - overlap if end < len(text) else end
             chunk_index += 1

@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import Column, DateTime, JSON, String, Text
+from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -35,6 +36,9 @@ class ChatSession(SQLModel, table=True):
 
 class ChatMessage(SQLModel, table=True):
     __tablename__ = "chat_messages"
+    __table_args__ = (
+        Index("ix_chat_messages_sources", "sources", postgresql_using="gin"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     session_id: int = Field(foreign_key="chat_sessions.id", nullable=False, index=True)
@@ -42,7 +46,7 @@ class ChatMessage(SQLModel, table=True):
     content: str = Field(sa_column=Column(Text, nullable=False))
     sources: Optional[dict] = Field(
         default=None,
-        sa_column=Column(JSON)
+        sa_column=Column(JSONB)
     )
     created_at: Optional[datetime] = Field(
         default=None,

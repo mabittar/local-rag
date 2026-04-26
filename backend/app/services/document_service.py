@@ -1,12 +1,15 @@
+from app.models.document import DocumentProcess
 import os
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.infrastructure.document_processor import DocumentProcessor
 from app.infrastructure.openrouter import OpenRouterClient
+from app.infrastructure.local_router import LocalRouterLLM
 from app.models.document import Document, DocumentChunk
 from app.schemas.document import (
     DocumentDetailResponse,
@@ -21,6 +24,7 @@ class DocumentService:
         self.db = db
         self.processor = DocumentProcessor()
         self.openrouter = OpenRouterClient()
+        self.localrouter = LocalRouterLLM()
 
     async def upload_document(
         self,
@@ -47,22 +51,36 @@ class DocumentService:
         )
         self.db.add(document)
         await self.db.flush()
+        document_process = DocumentProcess(
+            document_id=document.id,
+            process_status="processing",
+            markdown_content="",
+        )
+        self.db.add(document_process)
+        await self.db.flush()
 
         try:
             text = await self.processor.extract_text(file_path, file_type)
+            document_process.process_status = "completed"
+            document_process.markdown_content = text
+            await self.db.commit()
 
-            if not text:
-                document.status = "error"
-                await self.db.commit()
-                raise ValueError("Could not extract text from file")
+        except Exception as e:
+            document.status = "error"
+            document_process.process_status = "error"
+            await self.db.commit()
+            raise e
 
+        try:
             chunks = self.processor.chunk_text(
                 text, settings.CHUNK_SIZE, settings.CHUNK_OVERLAP
             )
 
             total_chunks = 0
             for chunk_data in chunks:
-                embedding = await self.openrouter.generate_embedding(chunk_data["content"])
+                embedding = await self.localrouter.generate_embedding(
+                    chunk_data["content"]
+                )
 
                 if embedding:
                     chunk = DocumentChunk(
@@ -78,12 +96,13 @@ class DocumentService:
             document.total_chunks = total_chunks
             document.status = "completed"
             await self.db.commit()
+            await self.db.refresh(document)
 
             return DocumentUploadResponse(
                 document_id=document.id,
-                filename=filename,
-                status="completed",
-                total_chunks=total_chunks,
+                filename=document.filename,
+                status=document.status,
+                total_chunks=document.total_chunks,
                 message="Document uploaded and processed successfully",
             )
 
@@ -125,6 +144,7 @@ class DocumentService:
         result = await self.db.execute(
             select(Document)
             .where(Document.id == document_id, Document.uploaded_by == user_id)
+            .options(selectinload(Document.chunks))
         )
         document = result.scalar_one_or_none()
 
@@ -135,8 +155,9 @@ class DocumentService:
 
     async def delete_document(self, document_id: int, user_id: int) -> bool:
         result = await self.db.execute(
-            select(Document)
-            .where(Document.id == document_id, Document.uploaded_by == user_id)
+            select(Document).where(
+                Document.id == document_id, Document.uploaded_by == user_id
+            )
         )
         document = result.scalar_one_or_none()
 

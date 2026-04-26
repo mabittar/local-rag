@@ -56,6 +56,29 @@ CREATE UNIQUE INDEX idx_chunks_document_index ON document_chunks(document_id, ch
 CREATE INDEX idx_chunks_document_id ON document_chunks(document_id);
 CREATE INDEX idx_chunks_embedding_hnsw ON document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
+CREATE TABLE document_metadata (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER NOT NULL,
+    meta_key VARCHAR(255) NOT NULL,
+    meta_value TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_metadata_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_metadata_document_id ON document_metadata(document_id);
+CREATE INDEX idx_metadata_key ON document_metadata(meta_key);
+
+CREATE TABLE document_process (
+    id SERIAL PRIMARY KEY,
+    document_id INTEGER NOT NULL,
+    process_status VARCHAR(255) NOT NULL,
+    markdown_content TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_process_document FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_process_document_id ON document_process(document_id);
+
 CREATE TABLE chat_sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,

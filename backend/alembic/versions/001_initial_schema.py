@@ -8,6 +8,7 @@ Create Date: 2026-04-19 15:00:00.000000
 from alembic import op
 import sqlalchemy as sa
 import sqlmodel
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from pgvector.sqlalchemy import Vector
 
 # revision identifiers, used by Alembic.
@@ -97,7 +98,7 @@ def upgrade() -> None:
         sa.Column('session_id', sa.Integer(), nullable=False),
         sa.Column('role', sa.String(20), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('sources', sa.JSON(), nullable=True),
+        sa.Column('sources', JSONB(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()')),
         sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
